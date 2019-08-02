@@ -1,0 +1,93 @@
+# snd-aloop is a kernel module so it must first be loaded e.g.
+# through "modprobe snd-aloop".
+# The loopback's device '0' is for play and '1' is for record.
+# Connecting these play/rec devices is done through the 8 subdevices.
+# So in principle the alsa loopback module can be thought of as 8 loops
+# that can be configured independently.
+# In the below config, all 'plug' devices are intended as "public",
+# i.e. to be used by Alsa audio applications.
+
+# In this example, a 4 channel "virtual sound card" with 2+2 stereo feeds
+# is used.
+#
+# Test:
+# speaker-test -D stereo_play1 -r48000 -c2 -tsine -f440
+# arecord -D stereo_rec1 | aplay -D default
+
+pcm.loop0_in {
+  type hw
+  card "Loopback"
+  device 0
+  subdevice 0
+}
+pcm.loop0_out {
+  type hw
+  card "Loopback"
+  device 1
+  subdevice 0
+}
+
+pcm.stereo_rec1 {
+  type plug
+  slave.pcm {
+    type dsnoop
+    ipc_key 1027
+    bindings [ 0 1 ]
+    slave {
+      pcm loop0_out
+      period_size 512
+      buffer_size 8192
+      channels 4
+    }
+  }
+}
+pcm.stereo_rec2 {
+  type plug
+  slave.pcm {
+    type dsnoop
+    ipc_key 1027
+    bindings [ 2 3 ]
+    slave {
+      pcm loop0_out
+      period_size 512
+      buffer_size 8192
+      channels 4
+    }
+  }
+}
+
+pcm.tmp_out1 {
+  ipc_key 1028
+  type dshare
+  bindings [0 1]
+  slave {
+    pcm loop0_in
+    period_size 512
+    buffer_size 8192
+    channels 4
+  }
+}
+pcm.tmp_out2 {
+  ipc_key 1028
+  type dshare
+  bindings [2 3]
+  slave {
+    pcm loop0_in
+    period_size 512
+    buffer_size 8192
+    channels 4
+  }
+}
+
+pcm.stereo_play1 {
+  type plug
+  slave {
+    pcm tmp_out1
+  }
+}
+pcm.stereo_play2 {
+  type plug
+  slave {
+    pcm tmp_out2
+  }
+}
